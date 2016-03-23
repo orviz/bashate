@@ -16,6 +16,7 @@ from __future__ import absolute_import
 
 import argparse
 import fileinput
+import magic
 import os
 import re
 import subprocess
@@ -201,6 +202,17 @@ def check_syntax(filename, report):
                     MESSAGES['E012'].msg % int(start.group('start')),
                     filename=filename,
                     filelineno=int(m.group('lineno')))
+
+
+def get_files_from_directory(directory):
+    bash_files = []
+    for root, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            fname = os.path.join(root, filename)
+            if magic.from_file(fname).split(',')[0] in [
+                "Bourne-Again shell script"]:
+                bash_files.append(fname)
+    return bash_files
 
 
 class BashateRun(object):
@@ -389,10 +401,21 @@ def main():
         messages.print_messages()
         sys.exit(0)
 
-    files = opts.files
-    if not files:
+    if not opts.files:
         parser.print_usage()
         return 1
+
+    files = []
+    for fname in opts.files:
+        if os.path.isdir(fname):
+            print("Getting bash files from directory '%s'" % fname)
+            files.extend(get_files_from_directory(fname))
+        else:
+            files.append(fname)
+
+    if not files:
+        print("No bash files found")
+        sys.exit(0)
 
     run = BashateRun()
     run.register_ignores(opts.ignore)
